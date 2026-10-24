@@ -29,11 +29,11 @@ Every step must follow these rules:
 - Do not optimize before correctness and reproducibility are demonstrated.
 - Complete each review gate before starting the next group of steps.
 
-## 3. Provisional version-one decisions
+## 3. Confirmed version-one decisions
 
-The architecture identifies product decisions that must be made before implementation. To make this plan actionable, it uses the following provisional decisions. They should be confirmed or changed in Step 0.
+The architecture identifies product decisions that must be made before implementation. The following decisions were approved on 2026-10-22 and are recorded in [version_one_decisions.md](./version_one_decisions.md).
 
-| Decision | Provisional version-one choice |
+| Decision | Confirmed version-one choice |
 |---|---|
 | Python support | Python 3.11 or later |
 | Operating systems | Windows and Linux |
@@ -50,9 +50,10 @@ The architecture identifies product decisions that must be made before implement
 | Serial correlation | None only |
 | Persistence | Uncompressed NPZ plus JSON and conditional JSON Lines |
 | Execution | In-process, single process |
-| Scale limit | Memory-estimate validation with a configurable limit; exact default to be confirmed |
+| Expected scale | Up to \(N=250\) assets, \(K=100\) factors, \(M=100\) paths, and \(H=252\) future trading days |
+| Default memory limit | \(1{,}000{,}000{,}000\) bytes (1 decimal GB); reject before RNG initialization unless the caller explicitly configures a higher limit |
 
-If any provisional decision changes, update this plan before coding the affected step.
+Any change to a confirmed decision requires explicit user approval before this plan or the implementation is changed.
 
 ## 4. Planned source tree
 
@@ -119,6 +120,8 @@ Step 15 Final acceptance gate
 
 ## 6. Step 0 — Confirm version-one decisions
 
+**Status:** Complete — approved 2026-10-22. See [version_one_decisions.md](./version_one_decisions.md).
+
 ### Objective
 
 Freeze the implementation boundary before source files are created.
@@ -143,7 +146,7 @@ Freeze the implementation boundary before source files are created.
 
 ### Deliverable
 
-A reviewed version-one decision register referenced by the repository README or project documentation.
+A reviewed [version-one decision register](./version_one_decisions.md) referenced by this implementation plan.
 
 ### Acceptance criteria
 
@@ -153,9 +156,11 @@ A reviewed version-one decision register referenced by the repository README or 
 
 ### Manual review gate
 
-The user reviews and approves the version-one boundary before Step 1.
+Passed on 2026-10-22. The user approved the version-one boundary with \(M=100\) paths and a default peak-memory limit of \(1{,}000{,}000{,}000\) bytes; all other recommended decisions were approved unchanged.
 
 ## 7. Step 1 — Bootstrap the Python package
+
+**Status:** Complete — verified 2026-10-22. The package skeleton imports, the smoke test passes, and an isolated editable build and import succeeded.
 
 ### Objective
 
@@ -194,6 +199,9 @@ Create the smallest runnable package and test environment.
 
 ## 8. Step 2 — Implement errors, enums, and domain dataclasses
 
+**Status:** Complete — revised implementation approved at Review Gate A on
+2026-10-23.
+
 ### Objective
 
 Create the vocabulary and immutable data structures used by every later step.
@@ -229,13 +237,9 @@ ValidationError must support multiple structured issues. Each issue contains:
 
 Implement string-valued enums for all v4 policy fields and asset status.
 
-Version-one enum support must distinguish:
-
-- values recognized and implemented;
-- values recognized by the broader contract but deferred; and
-- unknown invalid values.
-
-Do not silently coerce misspellings.
+The direct Python core accepts members of the declared enum types, not
+arbitrary strings. Parsing strings, aliases, misspellings, and recognized but
+deferred serialized values belongs to a future configuration adapter.
 
 #### 8.3 Domain dataclasses
 
@@ -244,6 +248,9 @@ Implement:
 - RiskState;
 - AssetMetadata;
 - FactorMetadata;
+- SimulationSchedule;
+- TradingCalendar;
+- JointGeneratorConfig;
 - SimulationPolicy;
 - ResolvedSimulationPolicy;
 - NumericalTolerances;
@@ -258,8 +265,11 @@ Document every array shape in docstrings.
 #### 8.4 Immutability
 
 - Use frozen dataclasses for input and result metadata.
-- Copy numerical inputs at the accepted request boundary.
-- Mark accepted arrays read-only where practical.
+- Copy external numerical inputs once at the accepted request boundary and mark
+  them read-only.
+- Require internally generated output arrays to be owned `float64` NumPy arrays;
+  mark the same arrays read-only when transferred to `InnovationBatch` or
+  `SimulationResult` without copying them again.
 - Do not expose setters that mutate the frozen risk state.
 
 ### Tests
@@ -284,6 +294,9 @@ Review the full contents of errors.py, config.py, and models.py before continuin
 
 ## 9. Step 3 — Implement policy-default resolution
 
+**Status:** Complete — revised implementation approved at Review Gate A on
+2026-10-23.
+
 ### Objective
 
 Convert a partially supplied SimulationPolicy into one fully resolved, auditable policy.
@@ -298,19 +311,22 @@ Convert a partially supplied SimulationPolicy into one fully resolved, auditable
 1. Implement a pure resolve_policy function.
 2. Apply every default listed in v4 Section 4.3.
 3. Record explicit or default for each field.
-4. Normalize Python None as the canonical absence of optional handlers.
-5. Reject unsupported version-one values with ConfigurationError.
-6. Validate required parameters for supported nondefault values.
-7. Create explicit registries for sampler and handler names, initially containing only approved version-one implementations.
+4. Validate enum types at the typed core boundary.
+5. Require explicit `invalid_return_policy` enforcement.
+6. Enforce `None`-only currency, corporate-action, and new-listing handlers
+   directly, without empty handler registries.
+7. Validate grouped `JointGeneratorConfig` compatibility and require an exact
+   registered joint-generator name and version.
 8. Ensure resolving one field does not change unrelated fields.
 
 ### Tests
 
-- An empty supplied policy resolves to all documented defaults.
+- A supplied policy containing only the required `invalid_return_policy = fail` resolves every other omitted policy field to its documented default.
 - Each field can be explicitly set to its default and is recorded as explicit.
-- Unknown values fail with a stable error code.
-- Deferred values fail with an unsupported-policy error rather than an unknown-value error.
+- A wrong runtime type fails with a stable typed-boundary error code.
 - Joint generation requires a registered joint sampler.
+- Independent generation rejects an active joint-generator configuration.
+- Non-`None` handlers fail as unsupported.
 - The fail invalid-return policy must be supplied explicitly because v4 does not assign it a default.
 - Repeated resolution is deterministic and does not mutate the supplied object.
 
@@ -325,6 +341,10 @@ Convert a partially supplied SimulationPolicy into one fully resolved, auditable
 Review one fully defaulted policy and one explicitly configured policy as rendered by the code. Confirm that the difference is visible in provenance.
 
 ## 10. Review Gate A — Contracts and configuration
+
+**Status:** Passed — user approved the revised Packet A on 2026-10-23. The
+approved acceptance-test SHA-256 is
+`9CC9EAB2F29DD8297036488E83C99913C42F153E30251D6757919DCCB3A556C7`.
 
 Before Step 4:
 
@@ -344,6 +364,8 @@ The review packet should contain:
 
 ## 11. Step 4 — Implement deterministic input validation
 
+**Status:** Complete — approved at Review Gate B on 2026-10-24.
+
 ### Objective
 
 Reject invalid simulation requests before any random values are consumed.
@@ -358,9 +380,11 @@ Reject invalid simulation requests before any random values are consumed.
 
 Implement validation in the following order:
 
-1. required scalar values and nonempty dates;
-2. strictly increasing future trading dates;
-3. positive \(M\), \(N\), \(K\), and \(H\);
+1. resolve exactly one schedule method against the supplied calendar and time
+   zone, including count/end-date semantics and calendar coverage;
+2. require nonempty, strictly increasing resolved sessions after the simulation
+   origin;
+3. validate required scalar values and positive \(M\), \(N\), \(K\), and \(H\);
 4. unique asset and factor IDs;
 5. exact array dimensions;
 6. asset and factor metadata alignment;
@@ -389,7 +413,12 @@ $$
 
 and validate its symmetry and positive semidefiniteness.
 
-Validation returns a validated context containing dimensions, aligned identifiers, target covariance, and numerical summaries. It must not mutate or repair the request.
+Validation returns a validated context containing dimensions, aligned
+identifiers, resolved dates, calendar provenance, target covariance, numerical
+summaries, and the memory estimate. All deterministic validation,
+target-covariance construction, and memory estimation happen once before RNG
+construction and are reused later. Validation must not mutate or repair the
+request.
 
 ### Tests
 
@@ -413,6 +442,8 @@ Create one focused negative test for each validation rule. Also test:
 - Target covariance is computed exactly once for reuse.
 
 ## 12. Step 5 — Implement numerical covariance roots and RNG streams
+
+**Status:** Complete — approved at Review Gate B on 2026-10-24.
 
 ### Objective
 
@@ -473,6 +504,8 @@ Do not require Cholesky factorization.
 
 ## 13. Step 6 — Implement independent Gaussian innovation sampling
 
+**Status:** Complete — approved at Review Gate B on 2026-10-24.
+
 ### Objective
 
 Implement the default stochastic policy.
@@ -489,9 +522,11 @@ Implement the default stochastic policy.
 2. Use the factor covariance root for factor innovations.
 3. Use square roots of specific variances for specific innovations.
 4. Use separate factor and specific RNG streams.
-5. Generate arrays with shapes \(M\times H\times K\) and \(M\times H\times N\).
+5. Allocate the final arrays deliberately with shapes
+   \(M\times H\times K\) and \(M\times H\times N\).
 6. Draw future steps independently under the no-serial-correlation policy.
-7. Return InnovationBatch with sampler diagnostics.
+7. Transfer the engine-owned arrays into `InnovationBatch` without copying them
+   again, mark them read-only, and include sampler diagnostics.
 8. Add a small dispatch function that selects the sampler from an explicit registry.
 
 ### Tests
@@ -520,6 +555,8 @@ Statistical tests with fixed seeds:
 
 ## 14. Step 7 — Implement joint Gaussian innovation sampling
 
+**Status:** Complete — approved at Review Gate B on 2026-10-24.
+
 ### Objective
 
 Support the v4 joint-generation policy while preserving the baseline covariance identity.
@@ -546,6 +583,8 @@ $$
 4. Split it into factor and specific innovation arrays.
 5. Reject any requested nonzero factor-specific cross-covariance.
 6. Record joint-sampler identity and block dimensions.
+7. Allocate final-shape outputs deliberately and transfer them into
+   `InnovationBatch` without a redundant copy.
 
 ### Tests
 
@@ -572,6 +611,12 @@ Review sampling.py in full. The reviewer should be able to identify:
 - where the zero cross-covariance requirement is enforced.
 
 ## 15. Review Gate B — Numerical and stochastic core
+
+**Status:** Passed — user approved Packet B on 2026-10-24. The approved
+acceptance-test SHA-256 is
+`462E143E18AFFF5CFB72AD21918E7C880696480861281DAAB6510FC0AA1759A0`.
+Invasive performance optimization remains deferred until later end-to-end
+profiling.
 
 Before Step 8:
 
@@ -757,7 +802,8 @@ Execution order:
 8. evolve prices and asset state;
 9. compute initial deterministic diagnostics;
 10. construct the manifest;
-11. return SimulationResult.
+11. transfer engine-owned final-shape arrays into `SimulationResult` without a
+    redundant copy, mark them read-only, and return the result.
 
 Additional requirements:
 

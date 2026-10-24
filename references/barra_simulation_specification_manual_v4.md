@@ -133,13 +133,29 @@ The run configuration must provide:
 - a unique `run_id`;
 - a risk-model name and version, without requiring that the model be a Barra product;
 - simulation origin $t_0$;
-- an ordered list of $H$ future trading dates;
+- exactly one schedule specification: (a) an ordered list of explicit future
+  trading dates, (b) a positive number of future trading days, or (c) a
+  simulation end date. The caller must also supply a deterministic trading
+  calendar and time zone. Schedule resolution produces the ordered dates
+  $(t_1,\ldots,t_H)$ used by the numerical engine;
 - ordered, unique `asset_ids` of length $N$;
 - ordered, unique `factor_ids` of length $K$;
 - number of paths $M\ge 1$; and
 - an explicit trading calendar and time zone.
 
-The future-date list, rather than calendar-day arithmetic, determines the number and order of simulated return periods.
+Every resolved date must be a trading session strictly after the simulation
+origin $t_0$. Under a trading-day-count request, the resolved dates are the
+first $H$ calendar sessions after $t_0$. Under an end-date request, the
+resolved dates are all calendar sessions after $t_0$ and on or before the
+requested end date. A trading-day end date is included; a non-trading-day end
+date resolves through the last preceding trading session. A schedule that
+resolves to zero future dates is invalid. Supplying zero or more than one
+schedule method is invalid. The simulator must not silently use weekday-only
+arithmetic or invent holiday rules.
+
+The resolved future-date list, rather than calendar-day arithmetic, determines
+$H$ and the order of simulated return periods. The run manifest retains both
+the caller's schedule specification and the resolved ordered dates.
 
 ### 4.2 Frozen risk state
 
@@ -170,7 +186,13 @@ Each state object must carry:
 - annualization state; and
 - provenance sufficient to identify the producing model run or source file.
 
-The engine must require `known_at <= simulation_origin`. Factor covariance, specific covariance, mean vectors, and modeled returns must use the same return convention and return basis. All covariance inputs must already be expressed in one-trading-day return units before simulation begins. If an upstream conversion or return-basis transformation was applied, its method and assumptions must be recorded. 
+The engine must require `known_at <= simulation_origin`. Factor covariance, specific covariance, mean vectors, and modeled returns must use the same return convention and return basis. All covariance inputs must already be expressed in one-trading-day return units before simulation begins. If an upstream conversion or return-basis transformation was applied, its method and assumptions must be recorded.
+
+External risk-state and request arrays are converted to `float64`, copied once,
+and made read-only when accepted. Arrays newly allocated and owned by the
+simulation engine are not copied merely to construct an output object; they are
+marked read-only before publication. This ownership rule is part of the
+peak-memory contract.
 
 ### 4.3 Simulation-policy inputs and defaults
 
@@ -211,13 +233,22 @@ policies:
 
 In serialized configuration, YAML `null`, JSON `null`, and the specification label `None` represent the same absence of an optional handler. Implementations must choose one canonical internal representation and record it.
 
+The language-independent serialized values in this table remain authoritative
+for manifests and future file adapters. The version-one direct Python API uses
+the corresponding enum members. It does not parse arbitrary strings, aliases,
+or misspellings. A future configuration adapter may parse serialized strings
+and must reject unknown or deferred values before constructing the typed core
+request.
+
 For this baseline, the four dynamics policies support `frozen`. A non-frozen value is valid only when a separately specified and registered dynamics implementation defines its parameters, state transition, timing, and validation rules. Similarly, a non-`None` currency, corporate-action, or new-listing policy requires a separately specified handler. The baseline engine must reject an unsupported nondefault value rather than silently treating it as the default.
 
 When both factor-volatility and factor-correlation dynamics are `frozen`, the engine copies $\mathbf F_0$ directly and need not decompose it into volatilities and correlations. This avoids an undefined correlation calculation for any factor whose variance is zero.
 
 The `independent` joint-distribution default applies between the factor and specific innovation **blocks**. It does not imply that factor components or asset returns are mutually independent: factor dependence is governed by $\mathbf F_0$, and shared exposures transmit that dependence to assets. Under diagonal $\mathbf D_0$ and the Gaussian default, specific innovation components are mutually independent as a mathematical consequence of that selected distribution and covariance, not merely because the covariance is diagonal.
 
-If `return_joint_distribution = joint`, the caller must provide a named and parameterized joint generator for
+If `return_joint_distribution = joint`, the caller must provide one grouped
+joint-generator configuration containing the generator's identity, version,
+parameters, marginal-distribution contract, and random-stream requirements for
 
 $$
 \mathbf z_h
@@ -283,7 +314,8 @@ After applying the defaults in Section 4.3, the stochastic configuration must co
 
 An explicitly supplied zero mean is valid. An omitted mean is a configuration error. Unlike the means, the distribution and serial-correlation fields use the defaults in Section 4.3 when omitted.
 
-When the resolved joint-distribution policy is `joint`, the configuration must additionally supply the joint generator's identity, version, parameters, marginal-distribution contract, and random-stream requirements.
+When the resolved joint-distribution policy is `joint`, the configuration must
+additionally supply those fields in one grouped joint-generator configuration.
 
 Under all stochastic defaults, the innovations satisfy
 
@@ -345,7 +377,17 @@ No symmetry, diagonal, or positive-semidefinite repair may occur silently. If re
 
 ### 5.1 Initialize and validate the frozen state
 
-At $t_0$, load $\mathbf X_0$, $\mathbf F_0$, $\mathbf D_0$, $\mathbf P_0$, ordered identifiers, asset currencies, optional factor metadata, dates, units, and supplied policies. Resolve every omitted policy field using Section 4.3 and persist whether each value was explicit or defaulted. Then compute
+At $t_0$:
+
+1. resolve exactly one supplied schedule method against the supplied calendar;
+2. persist the original schedule specification and resolved ordered dates;
+3. resolve every omitted policy field using Section 4.3 and persist whether
+   each value was explicit or defaulted; and
+4. perform deterministic preflight validation once.
+
+Load $\mathbf X_0$, $\mathbf F_0$, $\mathbf D_0$, $\mathbf P_0$, ordered
+identifiers, asset currencies, optional factor metadata, resolved dates, units,
+and supplied policies. Then compute
 
 $$
 \boldsymbol\Sigma_0
@@ -358,6 +400,11 @@ $$
 In plain English, the engine constructs the asset covariance target once from the frozen risk state.
 
 The run must fail before sampling if required metadata, mean vectors, random-number controls, or nondefault-policy parameters are absent; a policy value is unsupported; identifiers are misaligned; units are incompatible; prices are nonpositive; or matrix checks fail.
+
+The validated context is reused by all later stages. Later stages must not
+repeat matrix scans, identifier-alignment work, schedule resolution, memory
+estimation, or defensive input copying unless a documented stage-specific
+invariant requires it.
 
 ### 5.2 Draw factor and specific innovations
 
@@ -458,6 +505,8 @@ For each run, the engine must emit:
 - modeled asset returns with shape $M\times H\times N$;
 - mapped price-link returns with shape $M\times H\times N$, carrying return-type and adjustment tags;
 - prices with shape $M\times(H+1)\times N$, including $\mathbf P_0$;
+- the supplied schedule method and value;
+- the resolved ordered future trading dates;
 - asset currencies and the resolved currency-handling policy;
 - supplied factor metadata aligned to the ordered factor IDs;
 - when a nondefault delisting or corporate-action handler can change asset liveness, `asset_state` event records containing `asset_id`, `path_id`, `effective_date`, `status`, and `reason`;
@@ -474,6 +523,10 @@ The engine should use distinct field names for modeled returns and mapped price-
 
 ### 7.1 Pre-simulation deterministic checks
 
+- [ ] Exactly one schedule method was supplied; the trading calendar and time zone are present.
+- [ ] The resolved dates satisfy the supplied count or end-date request, are nonempty, strictly increasing, and strictly after the simulation origin.
+- [ ] An end-date request that resolves to zero sessions fails.
+- [ ] No random state is initialized before schedule and request validation passes.
 - [ ] $\mathbf X_0$ has shape $N\times K$, $\mathbf F_0$ has shape $K\times K$, and $\mathbf D_0$ has shape $N\times N$.
 - [ ] Asset and factor identifiers are unique, ordered, and aligned across all arrays.
 - [ ] Supplied factor metadata is aligned to `factor_ids`; if both `factor_class` and `exposure_class` are present, their documented mapping is consistent.
@@ -638,7 +691,15 @@ END FUNCTION
 ### 9.2 Multi-period simulation
 
 ```text
-FUNCTION simulate_paths(initial_state, policy, future_dates, number_of_paths, seed):
+FUNCTION simulate_paths(
+    initial_state,
+    policy,
+    schedule,
+    trading_calendar,
+    number_of_paths,
+    seed
+):
+    future_dates <- RESOLVE_SCHEDULE(schedule, trading_calendar, simulation_origin)
     resolved_policy <- APPLY_DOCUMENTED_DEFAULTS(policy)
     RECORD_EXPLICIT_VERSUS_DEFAULT_SOURCE(resolved_policy)
     VALIDATE_COMPLETE_CONFIGURATION(initial_state, resolved_policy, future_dates)

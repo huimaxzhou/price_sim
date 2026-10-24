@@ -56,6 +56,9 @@ The architecture provides narrow seams for authorized extensions, but it does no
 | Default persistence | NumPy NPZ arrays plus JSON metadata and JSON Lines events | Few dependencies and clear separation of arrays from audit records |
 | Logging | Boundary-layer logging only | Domain functions return structured diagnostics instead of producing hidden side effects |
 
+The direct Python boundary is typed. Serialized string parsing is an adapter
+responsibility and is not duplicated in `config.py`.
+
 ### 4.1 Dependency policy
 
 The production core should initially depend on:
@@ -201,7 +204,10 @@ The configuration module should define string-valued enums for:
 - invalid arithmetic-return policy; and
 - asset status.
 
-Only supported values are accepted. Unknown strings are configuration errors, not values to preserve for later interpretation.
+The core `SimulationPolicy` accepts members of these enum types. Their exact
+string values are serialization values for manifests and future adapters, not
+alternative core runtime types. String parsing and unknown-string diagnostics
+belong to an adapter outside the version-one core.
 
 The baseline enum values include:
 
@@ -235,7 +241,8 @@ RiskState is immutable and contains:
 
 The core stores specific variances as a vector rather than a dense diagonal matrix. A helper may expose \(\mathbf D_0\) when required. This makes diagonality explicit and avoids allocating \(N^2\) zero values.
 
-RiskState arrays must be copied or marked read-only when the request is accepted. The engine must never mutate them.
+RiskState arrays must be copied once and marked read-only when the request is
+accepted. The engine must never mutate them.
 
 ### 8.3 AssetMetadata
 
@@ -262,9 +269,55 @@ FactorMetadata is optional and contains one record per factor:
 
 If factor class and exposure class are both present, validation checks their declared mapping. Factor metadata is descriptive and must not alter the numerical exposure matrix.
 
+### 8.4.1 Supporting configuration objects
+
+`SimulationSchedule` is a small frozen dataclass containing exactly these
+optional value fields:
+
+~~~text
+explicit_future_dates: tuple[DateLike, ...] | None
+trading_day_count: int | None
+simulation_end_date: DateLike | None
+~~~
+
+Exactly one field must be non-`None`. This one-of check occurs once during
+preflight validation.
+
+`TradingCalendar` is a small frozen dataclass containing:
+
+~~~text
+calendar_id: str
+time_zone: str
+sessions: tuple[DateLike, ...]
+provenance: mapping
+~~~
+
+The sessions are the deterministic version-one calendar source. No third-party
+calendar dependency or weekday inference is added. Sessions must be strictly
+increasing and unique. Schedule resolution occurs once, using a binary search
+for the first session after the simulation origin followed by a bounded slice;
+it is never repeated by path or simulated date.
+
+`JointGeneratorConfig` is a frozen dataclass containing:
+
+~~~text
+name: str
+version: str
+parameters: mapping
+marginal_contract: mapping
+random_stream_requirements: mapping
+~~~
+
+It replaces five parallel joint-generator fields in the policy objects.
+
 ### 8.5 SimulationPolicy
 
-SimulationPolicy contains the caller-supplied values before default resolution. Each field is optional if v4 defines a default.
+SimulationPolicy contains the caller-supplied values before default resolution.
+Each enum policy field accepts only its declared enum type or the private
+omission sentinel. Each `None`-handler field accepts only explicit `None` or the
+omission sentinel. Arbitrary strings are not accepted by the core. A `joint`
+policy requires one registered `JointGeneratorConfig`; an `independent` policy
+must not contain an active joint configuration.
 
 A separate ResolvedSimulationPolicy contains:
 
@@ -273,6 +326,10 @@ A separate ResolvedSimulationPolicy contains:
 - parameters for nondefault behavior; and
 - a provenance mapping from policy name to explicit or default.
 
+The supplied form contains
+`joint_generator: JointGeneratorConfig | None | UNSET`; the resolved form
+contains `joint_generator: JointGeneratorConfig | None`.
+
 Using separate supplied and resolved objects prevents the code from confusing an omitted value with an explicitly supplied default.
 
 ### 8.6 SimulationRequest
@@ -280,8 +337,10 @@ Using separate supplied and resolved objects prevents the code from confusing an
 SimulationRequest contains:
 
 - run ID;
+- risk-model name and version;
 - simulation origin;
-- ordered future trading dates of length \(H\);
+- SimulationSchedule;
+- TradingCalendar;
 - number of paths \(M\);
 - initial prices \(\mathbf P_0\in\mathbb R^N_{>0}\);
 - factor means with shape \(H\times K\);
@@ -291,8 +350,12 @@ SimulationRequest contains:
 - optional FactorMetadata;
 - supplied SimulationPolicy;
 - random seed;
+- RNG bit-generator name and stream-allocation policy;
+- peak-memory limit in bytes, defaulting to `1_000_000_000`;
 - numerical tolerances; and
 - required provenance.
+
+Resolved future dates belong to the validated context and final result.
 
 A constant mean vector may be accepted at the adapter boundary, but it must be expanded or exposed through a clear broadcasting helper before the numerical core executes.
 
@@ -303,6 +366,13 @@ InnovationBatch contains:
 - factor innovations with shape \(M\times H\times K\);
 - specific innovations with shape \(M\times H\times N\); and
 - sampler metadata, including distribution, joint policy, RNG streams, and numerical factorization diagnostics.
+
+External inputs use `copy_readonly_input(value)`, which converts the value to
+an owned `float64` copy and marks it read-only. Engine-created outputs use
+`take_readonly_output(array)`, which requires an engine-owned `float64` NumPy
+array, marks that same array read-only, and returns it without copying.
+`RiskState` and `SimulationRequest` use the first operation;
+`InnovationBatch` and `SimulationResult` use the second.
 
 ### 8.8 AssetStateEvent
 
@@ -343,12 +413,15 @@ The result also retains ordered asset IDs, factor IDs, trading dates, asset curr
 
 Responsibilities:
 
-- define enums and policy dataclasses;
+- define enums and typed policy dataclasses;
 - apply documented defaults;
-- normalize None representations at adapter boundaries;
 - distinguish explicit from default values;
 - reject unsupported policy combinations; and
-- resolve named sampler and handler selections.
+- require an exact registered joint-generator name and version.
+
+Serialized string parsing is an adapter responsibility. The core does not
+maintain empty registries for currency, corporate-action, or new-listing
+handlers when version one supports only `None`.
 
 The module must not inspect numerical matrices or draw random values.
 
@@ -373,6 +446,7 @@ Models must not open files, log, validate covariance eigenvalues, or generate va
 
 Responsibilities:
 
+- resolve and validate the schedule once against the supplied calendar;
 - validate dimensions and identifier alignment;
 - validate dates and point-in-time availability;
 - validate return horizons, bases, and units;
@@ -396,6 +470,10 @@ $$
 Validation should collect related preflight problems into one ValidationError containing a list of structured issues. Each issue has a stable code, field path, and readable message.
 
 Validation must not repair the request.
+
+Validation returns one reusable validated context. Later components reuse its
+resolved dates, dimensions, aligned identifiers, target covariance, covariance
+summaries, and memory estimate rather than repeating full-array checks.
 
 ### 9.4 Innovation sampling — sampling.py
 
@@ -868,9 +946,18 @@ Initial optimization order:
 
 1. vectorize across assets and paths;
 2. avoid dense \(\mathbf D_0\);
-3. reuse temporary arrays only when readability is preserved;
-4. add path batching only after profiling; and
-5. consider parallelism only after deterministic single-process behavior is stable.
+3. avoid redundant copies of engine-owned \(M\times H\times N\) and
+   \(M\times H\times K\) arrays;
+4. scan each large input matrix only as required by one named preflight check;
+5. retain computed dimensions, aligned identifiers, target covariance,
+   covariance summaries, resolved dates, and the memory estimate in the
+   validated context for reuse;
+6. do not add defensive validation inside inner path, date, or asset loops;
+7. add safety work only when it protects a documented invariant and its cost is
+   included in the peak-memory or performance assessment;
+8. reuse temporary arrays only when readability is preserved;
+9. add path batching only after profiling; and
+10. consider parallelism only after deterministic single-process behavior is stable.
 
 Path batching must not change RNG stream assignment or results for a fixed seed.
 
