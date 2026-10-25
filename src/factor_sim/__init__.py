@@ -1,8 +1,35 @@
-"""Factor-risk equity simulation package.
+"""Public API for the factor-risk equity simulator."""
 
-The public simulation API is intentionally not exported during the bootstrap
-step. Public objects will be exported only after their contracts are implemented
-and accepted.
-"""
+from .engine import simulate
+from .models import (
+    AssetMetadata,
+    AssetStateEvent,
+    FactorMetadata,
+    JointGeneratorConfig,
+    NumericalTolerances,
+    ResolvedSimulationPolicy,
+    RiskState,
+    SimulationPolicy,
+    SimulationRequest,
+    SimulationResult,
+    SimulationSchedule,
+    TradingCalendar,
+    ValidationReport,
+)
 
-__all__: tuple[str, ...] = ()
+__all__ = (
+    "AssetMetadata",
+    "AssetStateEvent",
+    "FactorMetadata",
+    "JointGeneratorConfig",
+    "NumericalTolerances",
+    "ResolvedSimulationPolicy",
+    "RiskState",
+    "SimulationPolicy",
+    "SimulationRequest",
+    "SimulationResult",
+    "SimulationSchedule",
+    "TradingCalendar",
+    "ValidationReport",
+    "simulate",
+)

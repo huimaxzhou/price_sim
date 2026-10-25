@@ -54,6 +54,30 @@ class ValidationError(_IssueCollectionError):
 class NumericalError(SimulationError):
     """A numerical operation could not satisfy its declared contract."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "numerical_error",
+        context: Mapping[str, Any] | None = None,
+    ) -> None:
+        self.code = code
+        self.message = message
+        self.context = None if context is None else MappingProxyType(dict(context))
+        super().__init__(message)
+
 
 class PolicyExecutionError(SimulationError):
     """A supported policy failed while being applied."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str,
+        context: Mapping[str, Any] | None = None,
+    ) -> None:
+        self.code = code
+        self.message = message
+        self.context = None if context is None else MappingProxyType(dict(context))
+        super().__init__(message)

@@ -1,4 +1,4 @@
-"""Bootstrap smoke tests."""
+"""Package import smoke tests."""
 
 import factor_sim
 import factor_sim.config
@@ -13,6 +13,7 @@ import factor_sim.validation
 
 
 def test_package_skeleton_imports() -> None:
-    """Every planned module imports without exposing unfinished root APIs."""
+    """Every planned module imports and the approved entry point is public."""
 
-    assert factor_sim.__all__ == ()
+    assert callable(factor_sim.simulate)
+    assert "simulate" in factor_sim.__all__

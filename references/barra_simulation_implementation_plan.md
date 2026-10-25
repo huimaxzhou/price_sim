@@ -637,6 +637,8 @@ The review packet should contain:
 
 ## 16. Step 8 — Implement return construction
 
+**Status:** Complete — approved at Review Gate C on 2026-10-25.
+
 ### Objective
 
 Convert innovations and means into factor, specific, and modeled asset returns.
@@ -696,6 +698,8 @@ Use one clearly documented NumPy expression for the asset-factor multiplication.
 - The exact return equation is tested independently of random sampling.
 
 ## 17. Step 9 — Implement baseline pricing and asset-state contracts
+
+**Status:** Complete — approved at Review Gate C on 2026-10-25.
 
 ### Objective
 
@@ -772,6 +776,8 @@ The currency no-op records that each price remains in its asset currency.
 
 ## 18. Step 10 — Implement the simulation engine
 
+**Status:** Complete — approved at Review Gate C on 2026-10-25.
+
 ### Objective
 
 Create the single public orchestration entry point.
@@ -834,7 +840,34 @@ Additional requirements:
 
 Review engine.py and pricing.py together. Trace one canonical fixture from request through final prices.
 
-## 19. Step 11 — Implement diagnostics
+## 19. Review Gate C — Return construction, pricing, and orchestration
+
+**Status:** Passed — user approved Packet C on 2026-10-25. The approved
+acceptance-test SHA-256 is
+`1EFD00BE8411CFCAAEABB0A5C4707183A9DB292DDD87CFD133F2C4482D213AFA`.
+Invasive performance optimization remains deferred until later end-to-end
+profiling.
+
+Before Step 11:
+
+- all Step 8–10 focused tests pass;
+- all previously approved acceptance tests pass;
+- return construction satisfies the frozen-exposure equation;
+- incompatible return metadata fails before RNG creation;
+- invalid arithmetic returns fail without clipping, flooring, or resampling;
+- the public simulation path performs no file writes; and
+- engine.py and pricing.py remain directly traceable without framework
+  indirection.
+
+The review packet contains:
+
+- the return-construction and pricing control flow;
+- the canonical end-to-end fixture;
+- manifest and policy provenance examples;
+- non-gating canonical and maximum-shape benchmark results; and
+- the full changed-file and test summary.
+
+## 20. Step 11 — Implement diagnostics
 
 ### Objective
 
@@ -892,7 +925,7 @@ For the Gaussian default, independence is supported by sampler construction plus
 - A failure identifies the violated target.
 - Statistical checks distinguish sampling variation from deterministic invariant failure.
 
-## 20. Step 12 — Implement serialization
+## 21. Step 12 — Implement serialization
 
 ### Objective
 
@@ -940,7 +973,7 @@ Requirements:
 - The core simulation package works without writing files.
 - No pandas or database dependency is introduced.
 
-## 21. Step 13 — Build the complete acceptance suite
+## 22. Step 13 — Build the complete acceptance suite
 
 ### Objective
 
@@ -1009,7 +1042,7 @@ Generate a structured report mapping each v4 Section 10 criterion to:
 - Statistical tests are repeatable and non-flaky under the supported environment.
 - Negative tests prove prohibited assumptions are not silently introduced.
 
-## 22. Step 14 — Readability, performance, and documentation review
+## 23. Step 14 — Readability, performance, and documentation review
 
 ### Objective
 
@@ -1089,7 +1122,7 @@ Review the complete production code in dependency order:
 8. engine.py;
 9. io.py.
 
-## 23. Step 15 — Final acceptance gate
+## 24. Step 15 — Final acceptance gate
 
 ### Objective
 
@@ -1147,7 +1180,7 @@ within justified statistical tolerances;
 
 Failure of any condition keeps the implementation unaccepted. A waived condition must be documented as a specification or scope revision, not silently ignored.
 
-## 24. Manual-review strategy
+## 25. Manual-review strategy
 
 Because the user intends to read the code, implementation should be delivered in four review packets:
 
@@ -1169,7 +1202,7 @@ Each packet should include:
 
 Do not combine all steps into one large implementation change.
 
-## 25. Explicitly deferred work
+## 26. Explicitly deferred work
 
 The following work is outside version one unless Step 0 changes the boundary:
 
@@ -1193,7 +1226,7 @@ The following work is outside version one unless Step 0 changes the boundary:
 
 Deferred work must not leave partially active code paths in version one.
 
-## 26. Plan completion criteria
+## 27. Plan completion criteria
 
 This plan is ready for execution when:
 
