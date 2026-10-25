@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping
+from dataclasses import replace
 from enum import StrEnum
 from typing import Any
 
@@ -11,6 +12,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .config import resolve_policy
+from .diagnostics import evaluate_result
 from .errors import NumericalError
 from .models import (
     JointGeneratorConfig,
@@ -318,7 +320,7 @@ def simulate(request: SimulationRequest) -> SimulationResult:
         listing_metadata=listing_metadata,
         report=report,
     )
-    return SimulationResult(
+    provisional_result = SimulationResult(
         factor_innovations=innovations.factor_innovations,
         specific_innovations=innovations.specific_innovations,
         factor_returns=factor_returns,
@@ -328,6 +330,9 @@ def simulate(request: SimulationRequest) -> SimulationResult:
         prices=prices,
         asset_state_events=asset_state_events,
         target_asset_covariance=context.target_asset_covariance,
+        initial_prices=request.initial_prices,
+        factor_means=request.factor_means,
+        specific_means=request.specific_means,
         resolved_policy=resolved_policy,
         manifest=manifest,
         validation_report=report,
@@ -337,4 +342,21 @@ def simulate(request: SimulationRequest) -> SimulationResult:
         asset_currencies=asset_currencies,
         risk_state=request.risk_state,
         factor_metadata=request.factor_metadata,
+    )
+    complete_report = evaluate_result(provisional_result)
+    complete_manifest = _build_manifest(
+        request=request,
+        context=context,
+        policy=resolved_policy,
+        sampler_metadata=innovations.sampler_metadata,
+        mapping_metadata=mapping_metadata,
+        currency_metadata=currency_metadata,
+        corporate_action_metadata=action_metadata,
+        listing_metadata=listing_metadata,
+        report=complete_report,
+    )
+    return replace(
+        provisional_result,
+        validation_report=complete_report,
+        manifest=complete_manifest,
     )

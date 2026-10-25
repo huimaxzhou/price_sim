@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.pytest_tmp_*/
 .ruff_cache/
 
 # Local environments and build artifacts

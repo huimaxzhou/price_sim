@@ -1,6 +1,6 @@
 # Acceptance Contracts
 
-Packet A and Packet B are approved executable behavioral contracts. Their test
+Packets A through D are approved executable behavioral contracts. Their test
 modules are collected by the normal pytest suite. Under `AGENTS.md`, approved
 tests, thresholds, and tolerances cannot be materially changed without explicit
 user approval.
@@ -109,3 +109,28 @@ Packet B protects deterministic validation, covariance-root construction,
 reproducible per-path RNG streams, and independent and joint Gaussian sampling.
 Its approved SHA-256 is
 `462E143E18AFFF5CFB72AD21918E7C880696480861281DAAB6510FC0AA1759A0`.
+
+## Packet C
+
+**Status:** Approved
+**Approval date:** 2026-10-25
+**Scope:** Implementation-plan Steps 8–10
+**Test module:** `test_packet_c_contracts.py`
+
+Packet C protects return construction, raw arithmetic pricing, explicit None
+handlers, and complete in-memory orchestration. Packet D's approved successor
+amendment replaced the preflight-only diagnostic assertion while preserving all
+preflight summaries. Its current approved SHA-256 is
+`E4CE706DB87B9D87F8D5D0F11F8E15F806951579C7DFEEA3F50DB5ABEA1D4B0B`.
+
+## Packet D
+
+**Status:** Approved contract; implementation and Review Gate D pending
+**Approval date:** 2026-10-25
+**Scope:** Implementation-plan Steps 11–15
+**Test module:** `test_packet_d_contracts.py`
+
+Packet D protects complete diagnostics, exact auditable persistence, final
+acceptance reporting, documentation, and non-gating performance evidence. Its
+approved SHA-256 is
+`C1B99F0E64579EABEEEBCE6E8AE7CF17423958F1FEBAFE60EE6C59B3CE48B4B6`.

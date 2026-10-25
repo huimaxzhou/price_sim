@@ -723,7 +723,7 @@ def test_c_engine_007_successful_simulation_writes_no_files(
     assert result.prices.shape == (2, 4, 2)
 
 
-def test_c_engine_008_report_reuses_preflight_summaries_only() -> None:
+def test_c_engine_008_preserves_preflight_summaries_with_complete_diagnostics() -> None:
     simulate = _require(engine, "simulate")
     request = _request()
     context = validate_request(request, _policy())
@@ -732,10 +732,11 @@ def test_c_engine_008_report_reuses_preflight_summaries_only() -> None:
     assert result.validation_report.issues == ()
     for key, value in context.validation_summaries.items():
         assert result.validation_report.summaries[key] == value
-    assert result.validation_report.summaries["diagnostic_scope"] == "preflight_only"
+    assert result.validation_report.summaries["diagnostic_scope"] == "complete"
     assert (
-        result.validation_report.summaries["statistical_diagnostics_included"] is False
+        result.validation_report.summaries["statistical_diagnostics_included"] is True
     )
+    assert result.validation_report.summaries["checks"]
 
 
 def test_c_engine_009_result_arrays_are_owned_and_read_only() -> None:

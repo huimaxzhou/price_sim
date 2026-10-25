@@ -396,6 +396,9 @@ class SimulationResult:
     asset_currencies: tuple[str, ...]
     risk_state: RiskState
     factor_metadata: tuple[FactorMetadata, ...] | None = None
+    initial_prices: FloatArray | None = None
+    factor_means: FloatArray | None = None
+    specific_means: FloatArray | None = None
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -413,6 +416,14 @@ class SimulationResult:
                 field_name,
                 _take_readonly_float_output(getattr(self, field_name)),
             )
+        for field_name in ("initial_prices", "factor_means", "specific_means"):
+            value = getattr(self, field_name)
+            if value is not None:
+                object.__setattr__(
+                    self,
+                    field_name,
+                    _take_readonly_float_output(value),
+                )
         object.__setattr__(
             self, "asset_state_events", tuple(self.asset_state_events)
         )

@@ -14,6 +14,13 @@ acceptance-test SHA-256 is
 The user approved the completed Packet C implementation at Review Gate C on
 2026-10-25.
 
+On 2026-10-25, the user approved the Packet D successor amendment to
+`C-ENGINE-008`: all preflight summaries must remain present, while the completed
+engine now reports `diagnostic_scope="complete"`, includes statistical
+diagnostics, and exposes structured checks. The superseding Packet C
+acceptance-test SHA-256 is
+`E4CE706DB87B9D87F8D5D0F11F8E15F806951579C7DFEEA3F50DB5ABEA1D4B0B`.
+
 ## Purpose and boundary
 
 Packet C turns the validated stochastic core into one complete in-memory
