@@ -1,0 +1,67 @@
+{
+  "criteria": {
+    "1": {
+      "evidence_summary": "Required typed inputs, metadata, means, schedule, policies, and provenance are validated before sampling.",
+      "modules": ["config", "models", "validation"],
+      "status": "pass",
+      "test_ids": ["A-MODEL-006", "A-POLICY-003", "B-VAL-001"]
+    },
+    "2": {
+      "evidence_summary": "Invalid dimensions, alignment, dates, units, prices, variances, covariance, and policies fail explicitly.",
+      "modules": ["config", "validation", "sampling", "pricing"],
+      "status": "pass",
+      "test_ids": ["B-VAL-002", "B-COV-001", "C-PRICE-003"]
+    },
+    "3": {
+      "evidence_summary": "Frozen exposure and risk dynamics remain explicit and unchanged throughout every simulated step.",
+      "modules": ["config", "validation", "engine"],
+      "status": "pass",
+      "test_ids": ["A-POLICY-001", "B-VAL-004", "C-ENGINE-005"]
+    },
+    "4": {
+      "evidence_summary": "Every modeled return is checked against X f plus specific return within the configured equation tolerance.",
+      "modules": ["engine", "diagnostics"],
+      "status": "pass",
+      "test_ids": ["C-RETURN-003", "D-DIAG-002", "D-ACC-001"]
+    },
+    "5": {
+      "evidence_summary": "The approved 400-path smoke fixture reproduces configured moments, cross-covariance, serial policy, and asset covariance within five-standard-error rules.",
+      "modules": ["sampling", "diagnostics"],
+      "status": "pass",
+      "test_ids": ["D-STAT-001", "D-STAT-002", "D-STAT-003", "D-STAT-004", "D-STAT-006"]
+    },
+    "6": {
+      "evidence_summary": "Omitted policies resolve to documented defaults while required invalid-return behavior remains explicit.",
+      "modules": ["config", "engine"],
+      "status": "pass",
+      "test_ids": ["A-POLICY-001", "A-POLICY-002", "C-ENGINE-006"]
+    },
+    "7": {
+      "evidence_summary": "Policy values retain explicit/default provenance through simulation and serialization.",
+      "modules": ["config", "engine", "io"],
+      "status": "pass",
+      "test_ids": ["A-POLICY-002", "C-ENGINE-005", "D-IO-005"]
+    },
+    "8": {
+      "evidence_summary": "Raw arithmetic price linking, None currency behavior, and strictly positive live prices are enforced and diagnosed.",
+      "modules": ["pricing", "diagnostics"],
+      "status": "pass",
+      "test_ids": ["C-PRICE-001", "C-PRICE-003", "D-DIAG-003"]
+    },
+    "9": {
+      "evidence_summary": "Fixed seeds and recorded PCG64 per-path stream derivation reproduce numerical arrays; saved file hashes verify bundle integrity.",
+      "modules": ["sampling", "engine", "io"],
+      "status": "pass",
+      "test_ids": ["B-RNG-002", "C-ENGINE-003", "D-IO-006"]
+    },
+    "10": {
+      "evidence_summary": "Complete frozen inputs, generated arrays, identifiers, dates, metadata, diagnostics, provenance, and policies survive validated read-back.",
+      "modules": ["models", "engine", "diagnostics", "io"],
+      "status": "pass",
+      "test_ids": ["C-ENGINE-004", "D-IO-001", "D-IO-005", "D-ACC-002"]
+    }
+  },
+  "manual_review_status": "approved",
+  "overall_status": "pass",
+  "schema_version": "1"
+}

@@ -1,6 +1,6 @@
 # Packet D Acceptance Contract
 
-**Status:** Active; implementation authorized, Review Gate D pending
+**Status:** Approved; Review Gate D and final version-one acceptance passed
 **Prepared:** 2026-10-25
 **Scope:** Implementation-plan Steps 11–15
 **Acceptance module:** `test_packet_d_contracts.py`
@@ -9,9 +9,9 @@
 
 Review Gate C passed on 2026-10-25. The user approved the Packet D decisions and
 authorized implementation on 2026-10-25. Activating this contract authorizes
-Steps 11–15 implementation but does not itself establish Review Gate D or final
-version-one acceptance. Those remain pending the required evidence and manual
-review.
+Steps 11–15 implementation. The required evidence subsequently passed, and the
+user approved Packet D, Review Gate D, and final version-one acceptance on
+2026-10-25.
 The approved acceptance-test SHA-256 is
 `C1B99F0E64579EABEEEBCE6E8AE7CF17423958F1FEBAFE60EE6C59B3CE48B4B6`.
 

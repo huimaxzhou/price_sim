@@ -125,12 +125,12 @@ preflight summaries. Its current approved SHA-256 is
 
 ## Packet D
 
-**Status:** Approved contract; implementation and Review Gate D pending
+**Status:** Approved; Review Gate D and final version-one acceptance passed
 **Approval date:** 2026-10-25
 **Scope:** Implementation-plan Steps 11–15
 **Test module:** `test_packet_d_contracts.py`
 
 Packet D protects complete diagnostics, exact auditable persistence, final
-acceptance reporting, documentation, and non-gating performance evidence. Its
-approved SHA-256 is
+acceptance reporting, documentation, and non-gating performance evidence. The
+user approved the completed packet on 2026-10-25. Its approved SHA-256 is
 `C1B99F0E64579EABEEEBCE6E8AE7CF17423958F1FEBAFE60EE6C59B3CE48B4B6`.

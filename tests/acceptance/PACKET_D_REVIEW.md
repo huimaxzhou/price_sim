@@ -1,8 +1,8 @@
 # Packet D Review Gate Evidence
 
 **Prepared:** 2026-10-25
-**Review Gate D:** Pending user review
-**Final version-one acceptance:** Pending
+**Review Gate D:** Passed — user approved 2026-10-25
+**Final version-one acceptance:** Passed — user approved 2026-10-25
 
 ## Automated evidence
 
@@ -67,6 +67,7 @@ Review production modules in dependency order:
 - `src/factor_sim/models.py`
 - `tests/acceptance/PACKET_C.md`
 - `tests/acceptance/PACKET_D.md`
+- `tests/acceptance/PACKET_D_ACCEPTANCE_REPORT.json`
 - `tests/acceptance/PACKET_D_REVIEW.md`
 - `tests/acceptance/README.md`
 - `tests/acceptance/acceptance_reporting.py`
